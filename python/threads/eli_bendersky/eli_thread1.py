@@ -1,6 +1,7 @@
 """
 Cool and simple example of thread usage in python by Eli Bendersky.
-Please, check out his page http://eli.thegreenplace.net/
+Please, check out his page http://eli.thegreenplace.net/.
+Full blog post here http://eli.thegreenplace.net/2011/12/27/python-threads-communication-and-stopping/?utm_source=Python+Weekly+Newsletter&utm_campaign=8576133a87-Python_Weekly_Issue_15_December_29_2011&utm_medium=email
 """
 
 import os, time
