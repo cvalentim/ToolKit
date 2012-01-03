@@ -1,0 +1,747 @@
+OUTLINE
+-------
+
+0. Announcements
+1. Introduction
+2. More on shell expansion
+3. Command expansion.
+4. Shell quoting
+5. The shell as a scripting language
+6. Exit status, control flow, and variables
+7. "Hello World!": your first shell script
+8. Regular expressions
+9. Bringing everything together
+10. Exercises
+
+0. Announcements
+----------------
+
+* Solutions to the exercises in lesson one are now posted.  You can find
+  them in lesson one under their respective exercises.  Only one of the
+  three had a real "solution" though.
+
+* Do feel free to ask questions!
+
+* Please provide some feedback about the pace of the course after this
+  lesson.  Our plan is to do one lesson of approximately this size per
+  week.
+
+* We've covered a lot more of the shell language in this lesson, but not
+  the whole thing, and while we may cover a few more shell features in the
+  future, this is a lesson, not a full specification - The latter is good
+  to have on hand as well for reference. you can get a version of it here:
+  http://pubs.opengroup.org/onlinepubs/009695399/utilities/xcu_chap02.html
+
+1. Introduction
+---------------
+
+This lesson will pick up where last week's left off - You know some of the
+basics of working with the shell, we'll now cover some more advanced usage,
+including scripting and regular expressions.
+
+2. More on shell expansion
+--------------------------
+In the last lesson, we really wanted to drive home the point that the shell
+is the force that makes * and ? magical.  We'll illustrate this with an
+example.  To get started, we'll set some things up.  Create a new, empty
+directory and **cd** into it.  Then, run these commands::
+
+    $ touch grep
+    $ touch type:vegetable
+    $ wget https://github.com/jkoelndorfer/Intro-to-Unix-Linux/raw/master/materials/002/shell-expansion-demo/zzz
+
+Look at the contents of the file **zzz**.  Note that it contains a list of
+fruits and vegetables.  Now, let's try something::
+
+    $ *
+    avocado            type:vegetable
+    brocolli           type:vegetable
+    carrot             type:vegetable
+    red pepper         type:vegetable
+
+What is happening here?  Shell expansion!  The shell is simply replacing the
+* by the names of the files in lexical order.  You can see exactly what it
+has done by using **echo**::
+
+    $ echo *
+    grep type:vegetable zzz
+
+The shell has run **grep type:vegetable zzz**.  The emphasis again is that your
+shell treats * and ? specially, and it expands these characters to filenames.
+Programs like **ls** and **rm** don't see a * and say "oh hey an asterisk, I
+will just go ahead and list or delete everything," rather, the shell deals with
+those characters and gives ls and rm the list of files.
+
+Try deleting the file **type:vegetable** and creating a new one called
+**type:fruit**.  Then, run::
+
+    $ *
+
+to see it in action again.
+
+3. Command Expansion
+--------------------
+
+There is another more sophisticated form of shell expansion known as command
+expansion, that we've not yet talked about. If you put a command between a
+pair of backticks:
+
+::
+    
+    $ `command`
+
+Or between $( and ):
+
+::
+    
+    $ $(command)
+
+the command will be executed, and the shell will substitute whatever it writes to
+it's standard output into the command that contains the expansion. So, to
+extend the example from the previous section, If we're in a directory that
+once again contains three files: grep, type:vegetable, and zzz, instead of
+using
+
+::
+    
+    $ *
+
+we can also do:
+
+::
+    
+    $ `ls`
+
+which will run ls, and use its output as a command.
+
+We'll talk more about this after discussing some other shell features.
+
+4. Shell quoting
+----------------
+
+So what do we do if we want to use a character, like * or ?, that has special
+meaning to the shell? That's what quoting is for! There are three ways to
+quote characters - with a backslash (\\) single quotes (') and double quotes
+(").
+
+The backslash simply removes any special meaning from the character
+immediately after it. For example, the expr command does arithmetic with it's
+arguments. To find the product of 2 and 3, we could do:
+
+::
+    
+    $ expr 2 \* 3
+    6
+
+To expr, the asterisk means multiplication, but we need to quote it to keep
+the shell from substituting in the contents of the current directory.
+
+You can also use backslash to span a command across multiple lines.
+
+::
+    
+    $ cp \
+    > one \
+    > two
+ 
+is the same as:
+
+::
+    
+    $ cp one two
+
+This can be useful for very long commands.
+
+The '>' prompt indicates that the shell is waiting for more input. Just like
+with '$', you may or may not see exactly the same thing.
+
+Single quotes remove all special meaning from any characters between them. So,
+for example, if we want to rename a file that has a space, or special
+characters in it's name, we can do:
+
+::
+    
+    $ mv 'file ?? *name' filename
+
+Note that there's no requirement to put the single quotes at the ends of an
+argument, or anything like that. It may look stranger, but the following is equivalent:
+
+::
+    
+    $ mv file' ?? *'name filename
+
+Finally, we have double quotes - double quotes act like single quotes, except
+they only escape some special characters, and not others. Specifically, They
+escape everything except sets of backticks, as well as the equivalent usage of
+$( and ), any other use of $ that normally has special meaning to the shell
+(some of which we'll talk about later) and backslashes that are followed by
+any of the characters:
+
+::
+    
+    \ ` " $
+
+Or a newline character. Note that this means, unlike with single quotes, you
+can put double quotes within a double-quoted expression by using a backslash.
+
+5. The shell as a scripting language
+------------------------------------
+
+From the last lesson you may recall that from the shell's perspective, the
+command prompt is just a file to read from. It's therefor no surprise that
+if we prepare a series of commands in a file, we can have them executed
+sequentially by doing:
+
+::
+
+	$ sh < filename
+
+In the above, we launch the **sh** command - which is the shell - with its
+standard input being read from the file "filename" - where presumably we've
+prepared a series of commands to be run.
+
+We haven't talked about text editors yet - in the long run if you're going to
+be doing much editing at all it's a good idea to find a good one. Emacs and
+Vim are both very popular, and can be used within a terminal, which makes them
+especially handy in certain situations. They both come with built-in tutorials
+to get you started - The vimtutor command will launch th one for Vim, and upon
+launching emacs (by just typing the command) some general instructions,
+including how to launch the tutorial will be displayed. For now, however, in
+order to dive right into the contents of **this** lesson, you may want to use
+something more basic, such as gedit or kate, or something similar. If you've
+installed one of the major desktop distributions, one of those should be
+available.
+
+A series of commands prepared in a file such as this is often referred to as a
+script. There are actually a few more convenient ways of launching scripts,
+but the above is an important observation. The sh command can also take
+a filename as an argument. More interestingly, commands themselves are
+typically just programs stored in files (there are a few exceptions, as we'll
+see), and as it turns out, the shell is actually a programming language! So it
+should be possible to write a script, give it a name, and treat it just like
+any other command.
+
+First though, it would be nice, for the purposes of scripting things, if our
+scripts could make some decisions for themselves.
+
+6. Exit statuses, control flow, and variables
+---------------------------------------------
+
+So, we need to talk about exit statuses. When a command finishes, it sets an
+exit status. An exit status is just a non-negative integer. 0 means everything
+worked, anything else usually means something went wrong. For example,
+
+::
+
+    $ cat hgweoihwgeoihgewo
+
+will probably spit out an error message, assuming there's no file by that
+name. It will also result in a non-zero exit status.
+
+We can make use of this - the shell has a number of constructs that will run
+commands depending on the exit status of other commands. The most basic one is
+if, which in the most basic case has the form:
+
+::
+
+    if <command>
+    then
+        <commands>
+    fi
+
+First, <command> will be executed. Then, commands will be executed if and only
+if <command> returned an exit status of 0.
+
+It seems rather limited to only be able to test for the success or failure of
+a command though, so some commands, whose job it is to explicitly test for
+certain conditions, will use a successful exit status to mean true, and a
+failure to mean false. The most pervasive of these is test.
+
+To test for the existance of a particular file I can do:
+
+::
+
+    $ test -e filename
+
+To test if it's a directory, I might try
+
+::
+
+    $ test -d filename
+
+So, if I want my script to enter a directory only if it exists (and is in fact
+a directory), I can write the following:
+
+::
+
+    $ if test -d directory_name
+    > then
+    >     cd directory_name
+    > fi
+
+A shorter way I could have written this is:
+
+::
+
+    $ test -d directory_name && cd directory_name
+
+The && operator acts a lot like if - it executes the first command, then
+checks the exit status, and if zero, executes the second. There's a similar
+operator, ||, which executes the second command only if the first command
+fails.
+
+With if, you can specify something to do on failure as well :
+
+::
+
+    $ if test -d directory_name
+    > then
+    >     cd directory_name
+    > else
+    >    echo 'directory name does not exist.' # the echo command prints out
+    >                                          # its arguments to stdout.
+    > fi
+
+The # character starts a comment, which the shell just skips over. The point
+of comments is to leave explanatory notes in scripts, which is generally a
+good idea, especially if you're going to share the code, but even if you're
+not - you'd be amazed how much you can forget. Shell comments extend until the
+end of the line.
+
+You can also provide alternate tests in the event of failure:
+
+::
+
+    $ if test -d directory_name
+    >   cd directory_name
+    > elif test -e directory_name
+    >   echo 'directory_name exists but is not a directory.'
+    > else
+    >   echo 'directory_name does not exist'
+    > fi
+
+Note the indentation - The shell doesn't care about indentation, but it makes
+the code far more readable if conditional blocks of commands are indented like
+this.
+
+You can add an arbitrary number of elif blocks to an if statement like this,
+though if there is an else it must come last. Once one test is successful, all
+others will be skipped.
+
+There are more constructs like this, that give you conditional control over
+your script, but first lets talk about variables, as it will be increasingly
+difficult to come up with realistic examples without using them.
+
+A shell variable is a container for some value. (The only kind of value the
+shell supports is a string of characters.) We can create a variable, or assign
+a new value to an existing variable, like so:
+
+::
+
+    $ var=value
+
+Note that there is no space between the variable name, the equals sign, and
+the value. If we had done this:
+
+::
+
+    $ var = value
+
+the shell would have interpreted this as running the command var with two
+arguments, '=' and 'value', which is not what we want. To use the value of a
+variable in a command, we prefix the variable name with a $:
+
+::
+
+    $ echo $var
+    value
+
+There are two types of variables: regular shell variables and environment
+variables. Environment variables are shell variables that have been made
+visible to processes launched by the shell - normally only the shell can see
+its variables. To make a variable into an environment variable, we use
+'export':
+
+::
+
+    $ export var
+
+We assign a value to a variable and export it in one command:
+
+::
+    
+    $ export var=value
+
+Environment variables are used for a number of things. Here are some common
+environment variables and their values/purposes:
+
+* PATH - A colon separated list of directories in which the shell should look
+  for commands.
+* EDITOR - set to the user's preferred text editor - some commands may use
+  this to have the user interactively edit a file.
+* PAGER - set to the command used to scroll through long output. If set, man
+  will pipe it's output through this, instead of less.
+* HOME - the current user's home (personal) directory.
+
+There are others as well. The fact that man respects the PAGER environment
+variable, for example, means that if we want to dump the man page for ls to a
+file, we can do:
+
+::
+    
+    $ export PAGER=cat
+    $ man ls > man-ls.txt
+
+Of course, afterwards, PAGER is still set to cat, so man will continue to not
+use less in the future. If this is not what we want, we can use unset to get
+rid of the PAGER variable:
+
+::
+    
+   $ unset PAGER
+
+We can also prefix a command with a variable assignment to set the value of
+the variable and export it for only that command:
+
+::
+    
+    $ PAGER=cat man ls > man-ls.txt
+
+Only the command we prefix with this assignment "sees" it.
+
+Another interesting set of constructs is loops. One example is the for loop,
+which has the form:
+
+::
+    
+    for <var> in <list>
+    do
+        <commands>
+    done
+
+where <var> is a variable name, <list> is a whitespace separated list, and
+<commands> is a series of commands. It works like this: each value in <list>
+is assigned to <var>, in order, and after each assignment, <commands> is run.
+Here's a silly example:
+
+::
+
+    $ for i in one two three
+    > do
+    >   echo $i $i
+    > done
+    one one
+    two two
+    three three
+
+The while loop is similar to the if statement, with one major difference:
+after each time through the conditional block (which we'll call the **body**
+of the loop) it runs the test again, repeating the block if it returns a zero
+exit status again. So here's a rather silly example:
+
+::
+    
+    $ while test $PWD != /
+    > do
+    >   echo $PWD
+    >   cd ..
+    > done
+
+the != tells test to test if the two operands are not equal. If we're in the
+directory /tmp/foo/bar/baz, we'll get output like the following:
+
+::
+
+    /tmp/foo/bar/baz
+    /tmp/foo/bar
+    /tmp/foo
+    /tmp
+
+Walk through the code and verify that you understand why this happens.
+
+7. "Hello World!": your first shell script
+------------------------------------------
+
+There are a couple of other things you should know before you can create a
+"hello world" shell script.  Scripts that are meant to be run are typically
+set up so that you can call them directly.  For instance, instead of::
+
+    $ sh script.sh
+
+you would run::
+
+    $ ./script.sh
+
+There are a few things you must do to accomplish this:
+
+1. The user running the script must have read and execute permissions on the
+   script.
+2. The script's first line must be a shebang and nothing else.
+
+First, in a temporary directory, create a new file named helloworld.sh using
+**touch**.
+
+You can give yourself read and execute permissions by using **chmod** like so::
+
+    $ chmod +rx helloworld.sh
+
+Now, open helloworld.sh using your text editor choice.  The contents should be::
+
+    #!/bin/sh
+    echo 'Hello World!'
+
+Save and close the file.  Now at the shell, change into the directory containing
+helloworld.sh and execute it::
+
+    $ ./helloworld.sh
+    Hello World!
+
+If all went well, you should see the output as above.  Some tips:
+
+* The shebang line must contain **exactly** what is shown (minus any leading
+  space).  If it does not, it will try to execute something other than
+  ``/bin/sh``, which we don't want.  If you are for some reason editing the
+  script inside Windows, you *will* have problems because Windows line breaks
+  are different from those used in Unix!
+
+* The file extension is not important.  The script is identified by the
+  shebang, not the extension.
+
+* Shebangs can point at interpreters other than ``/bin/sh``.  For instance,
+  we could write a Perl script and the shebang might read ``#!/usr/bin/perl
+  -w``.
+
+8. Regular expressions
+----------------------
+
+Regular expressions are a very powerful tool for dealing with text - They
+allow you to do pattern matching, somewhat like the shell wildcards described
+in the previous lesson, but more powerful. They started off as a theoretical
+model of computation; it was Unix that first gave them life as a practical
+tool. We won't be going into the theory heavy details, but we will discuss
+some of the consequences of the theory where appropriate.
+
+The full explanation of the format of regular expressions can be found in the
+regex(7) man page - the (7) means section 7, rather than, for example, the C
+functions for dealing with regular expressions. To get the man page for a
+specific section, use:
+
+::
+
+	$ man 7 regex
+
+**Basic syntax**
+
+Most characters match themselves literally.  A single character is itself *atomic*.
+This will be explained in more detail shortly.
+
+There are a few special characters that do not match themselves literally, rather
+they allow you to do other useful things.  The following are all special
+characters per the manual mentioned above::
+
+    ^.[$()|*+?{\
+
+You can escape these characters (that is, tell your parser to interpret them
+literally) by prefixing them with "\\".  A quick rundown of the special
+characters:
+
+* ^ matches the beginning of a line.  $ matches the end of a line.
+* . matches any character.
+* [ and ] are used together to create a *character class*.  It will match any
+  of the characters enclosed between the brackets.  A character class is atomic.
+  You can use "-" to create a range inside a class.  For example, "[A-Z]" does
+  what you would expect: it matches any capital letter in the alphabet.
+* ( and ) create an *atom*.  Think of it as a "sub expression" that is atomic.
+  We'll show how this can be useful shortly.
+* \* matches the previous atom 0 or more times.
+* \+ matches the previous atom 1 or more times.
+* ? matches the previous atom 0 or 1 times.
+* { and } are used to specify that the previous atom should be matched a certain
+  number of times. Examples: {5} matches exactly five times, {1,3} matches 1 to
+  3 times, {3,} matches 3 or more times.
+* \| creates a *branch*.  It will match either the entire left side of the | or
+  the entire right side (bounded by parenthesis).  Note you can use more than
+  one of these to match any of the branches.
+* \\ escapes any of the special characters.  Use \\\\ to match a \\ literally.
+
+**Examples**
+
+The regular expressions and their matches are enclosed in quotes to clarify
+where the expressions and matches start/end.::
+
+    Regex:   "hello"
+    Matches: "hello" "goodbyehellogoobye" ...
+
+    Regex:   "abc*"
+    Matches: "ab" "abc" "abcc" "abccc" ...
+
+    Regex:   "abc|def"
+    Matches: "abc" "def" "abdef" "abcef"
+
+    Regex   "I (adore|love|miss) you"
+    Matches: "I adore you" "I love you" "I miss you"
+
+    Regex:   "a{3,5}"
+    Matches:  "aaa" "aaaa" "aaaaa" "aaaaaa" ... "aaab" "baaaaaaab" ...
+
+**Note the pitfall above!**  It will match any expression with 3 or
+more "a" characters in a row.  To get around this, you need more context in
+your regular expression. ::
+
+    Regex:   "abc?"
+    Matches: "ab" "abc"
+
+    Regex:   "\([0-9]{3}\) [0-9]{3}-[0-9]{4}"
+    Matches: Any phone number of the form (111) 111-1111
+
+It's an important property of regular expressions that matches can be found
+reasonably efficiently - and so it's worth noting one construct that can't -
+backreferences. Backreferences are things like:
+
+::
+
+	(a|b)\1
+
+The (a|b) matches either a or b, the \1 matches whatever was matched by the
+parenthesized expression. So this will match aa or bb, but not ab or ba.
+
+This kind of construct is, in the strict theoretical sense, **not** a regular
+expression, and importantly, **can't** be matched nearly as efficiently. Lots
+of regular expression implementations allow these, but if it's important for
+what you're doing, you should bear this in mind.
+
+As an aside, while regular expressions can always be matched efficiently, a
+number of popular implementations don't quite achieve this, and have some
+pathological cases which are very slow. Further reading : http://swtch.com/~rsc/regexp/regexp1.html
+
+Regular expressions are used by a handful of utilities. We mentioned one
+such utility last week, namely grep. Others include sed and awk, both of which
+an entire lesson could be devoted to.
+
+However the most basic usage of sed, which is very common, is fairly straightforward:
+
+::
+
+	sed -e 's/<regex>/<replacement>/'
+	sed -e 's/<regex>/<replacement>/g'
+
+This scans through the input, taking each line, and replacing instances of
+<regex> with <replacement>. The first form only replaces the first occurrence
+on each line, the second, with the 'g' at the end, replaces each occurrence.
+Note that the substitution command is quoted - This is not mandatory, but is
+common due to the fact that many of the characters used in regular expressions
+have special meaning to the shell.
+
+
+9. Bringing it all together
+---------------------------
+
+We've covered a good portion of the shell's features by now. let's spend some
+time looking at some more detailed examples, to see how to use them in conjunction.
+
+Under MS-DOS, there was no such thing as shell expansion, but you could do
+things like
+
+::
+    
+    C:\> move *.a *.b
+
+To rename all files ending in .a to the same thing with a .b extension. This
+was done by having the move command do something special when it sees the *
+character. normally, special-casing like this is quite limiting - this is
+one of the only things you can do with the asterisk in MS-DOS. But in this
+case the above actually doesn't work on unix. Why?, The shell will substitute
+the first pattern with all the files in the current directory ending in .a,
+and the second with all the files ending in .b. How on Earth, with that input,
+would mv figure out what we wanted?
+
+So how might we do a similar task in unix? Here's one way:
+
+::
+    
+    $ for file in *.a
+    > do
+    >   mv $file `echo $file|sed 's/\.a$/.b/'`
+    > done
+
+The following is adapted from a script I (zenhack) wrote when toying with the
+idea of rolling a distro of my own. It was used when upgrading software - its
+job was to clean up files that the old version contained, but the new one
+didn't. Here it is:
+
+::
+    
+    $ diff old-filelist new-filelist|grep '^<'|sed 's/<//'|while read del
+    > do
+    >   rm $del
+    > done
+
+Let's examine how this works. First of all, we've introduced two new commands:
+diff and read. read is simple: it reads a line from it's standard input, and
+treats it's argument as a variable name, to which it assigns the contents of
+the line.
+
+diff shows the differences between two files. There are a few
+ways it can display this, but by default, it shows lines in the first file but
+not in the second prefixed with '< ', and lines in the second but not in the
+first with '> ', along with some other output.
+
+old and new filelist, in this example, are files containing the paths to each
+of the files contained by the appropriate versions of the software, one per
+line.
+
+diff gives us a list of files that have been added or removed, but we only
+want the ones that have been removed. that's what piping through grep gives
+us (Why?). But then we have a '<' at the beginning of all our filenames, So we
+pass the input off to sed, which is use to chop off the first '<' from each
+line. we then pipe this list of files to a while loop, which deletes each of
+them. read returns a failing exit status when runs out of input, so we use
+that to determine when to exit the loop.
+
+There are actually a few problems with this example - it will work in most
+cases, but what are some things that could go wrong?
+
+10. Exercises
+-------------
+
+Your turn! Try these exercises:
+
+* the command wc counts the number of characters, words, and lines in a file.
+  try to implement just the line counting as a shell script - your script
+  should read it's input from standard output, and output the number of lines in
+  the input.
+
+* Using the ``objdump -d`` command on a binary of your choosing, determine which
+  instruction occurs consecutively the greatest number of times in the binary.
+  Here's what we mean::
+
+      $ objdump -d /bin/ls
+      <removed for brevity>
+        410cf1:       75 ed                   jne    410ce0 <wcstombs@plt+0xe9d8>
+      <removed for brevity>                  |---|
+
+The underlined portion (jne) is where the instructions appear.  It is just one
+example of an instruction -- others are mov, add, xor, and jmp.
+
+This is intended to be a challenging exercise, so do spend some time on it!
+
+Hints:
+
+* Not all lines in the output of ``objdump`` will contain instructions.  You
+  need to filter out the ones that don't have them.
+
+* The first two columns (that contain "410cf1:" and "75 ed") will only contain
+  hexadecimal characters, i.e. 0-9 and a-f, except for that one rogue colon. :-)
+
+* You can remove the unwanted junk using ``sed``.
+
+* ``uniq`` and ``sort`` may also come in handy.
+
+.. **Solution** objdump -d /bin/ls | grep '\s\+\([0-9a-f]\{2\}\s\)\+\s\+' | sed -e 's#\s*[0-9a-f]\+:\s\+\([0-9a-f]\{2\}\s\)\+\s\+\([a-z]\+\).*#\2#' | uniq -c | sort -n
+.. The grep expression checks to see if one or more "raw bytes" are present.
+.. "\s*[0-9a-f]\+:" grabs the memory address and preceeding whitespace (field one).
+.. "\s\+\([0-9a-f]\{2\}\s\)\+" grabs the raw bytes of the instructions and preceeding whitespace (field two).
+.. "\s\+\([a-z]\+\)" grabs the mnemonized instruction (field three).  The instruction is in parenthesis for a backreference (it is \2).
+.. ".*" blows away the rest of the line.
+
+.. vim: expandtab

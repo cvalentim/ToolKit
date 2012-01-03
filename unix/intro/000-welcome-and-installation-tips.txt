@@ -1,0 +1,103 @@
+OUTLINE
+-------
+
+I. Welcome
+II. How to choose a distribution
+III. How to partition your system
+
+I. Welcome
+----------
+
+Welcome to the Introduction to Unix/Linux course.  The first lesson will be an
+introduction to the shell.  You will need a working Linux installation to
+follow along with the lesson.  This "pre-lesson" should give you some hints on
+how to get started with an install if you haven't performed one yet.
+
+If you don't have a machine to dedicate to a Linux installation, it is
+recommended that you install inside a virtual machine so that you can still use
+your computer.  You can download VirtualBox (http://www.virtualbox.org) and use
+it for free on all major operating systems.
+
+Some administrative things:
+
+* Please post questions under the relevant lesson in the IntroToUnix subreddit
+  (http://www.reddit.com/r/introtounix). This allows others taking the course
+  to make use of the answer without us having to repeat ourselves.  There are a
+  lot of people taking this course, and it will certainly save us a lot of time
+  to not have to deal with duplicate questions!
+
+* If you are posting in an old lesson or your question has somehow slipped
+  under the radar, don't worry.  Kindly send us an e-mail or Reddit PM with
+  a permalink to your question and we'll get on it!
+
+* As mentioned in the syallbus, please do provide feedback if you think there
+  is something we can do to be more effective teachers.
+
+* Our Reddit usernames are kdorf and zenhack.  Our UReddit e-mails are the same
+  (@ureddit.com).
+
+II. How to choose a distribution
+--------------------------------
+
+There are many Linux distributions to choose from.  There is a list of the
+top ten Linux distributions on DistroWatch.com
+(http://distrowatch.com/dwres.php?resource=major).  If this is your first time
+using Linux, you might want to get started with one of these:
+
+* Ubuntu
+* Linux Mint
+* Fedora
+* openSUSE
+* Debian
+
+The aforementioned distributions are not targeted at power-users, and should be
+easy to install even for a novice.
+
+III. How to partition your system
+---------------------------------
+
+During the installation, you will be asked how you want to partition your system.
+Some distributions have an option to do it automatically.  Don't do this.  We'll
+start with a lesson in partitioning.  For each partition, choose ext4 if it is
+available (unless noted), otherwise choose ext3.  The "ext" series of
+filesystems are native to Linux, and ext4 is the latest revision.  ext4 should
+be available for the latest version of each distribution listed above.
+
+The following partitioning scheme should provide ample space for just about
+every use case::
+
+    /boot -  2 GiB (choose ext3 here)
+    /     - 20 GiB
+    /var  - 10 GiB
+    swap  - (same as the amount of RAM you have; use the "swap" type, not ext4)
+    /home - all remaining space
+
+Now, some explanation:
+
+Different branches of the filesystem (/boot, /var, etc.) can be separated by
+creating different partitions.  There are several reasons for doing this:
+
+* The directory might contain files with certain properties, and might benefit
+  from tuning the filesystem options (here, we do not worry about that).  An
+  example might be a partiton that will contain mostly many very small files.
+
+* There is some reason we need the directory on a different type of filesystem.
+  /boot fits here -- we use ext3 because some older versions of grub (the
+  bootloader) do not support ext4, and we want to avoid problems just in case.
+
+* If a partition fills up, we don't want it taking down the rest of the system.
+  If the partition that root (/) is on fills up, bad things can happen.  /var
+  fits here.  Because /var holds logs, it is written to frequently.  If some
+  logging facility starts writing to your disk like crazy, you do not want it
+  to junk up the partition your root directory (/) is on.
+
+* If you ever have to reformat your system, you can leave some data intact.
+  This is the main reason for separating out /home.  You can, at your option,
+  install another distribution and keep all your data intact if you keep /home
+  on its own partition.
+
+If you're on a laptop, you probably want swap size to match the amount of RAM
+you have.  This allows you to use hibernate.  In other cases, you may not need
+swap to match the amount of RAM you have (indeed, you might not need very much
+swap -- or possibly none at all!)  However, since disk space is cheap, swap =
+RAM is a good general rule of thumb.

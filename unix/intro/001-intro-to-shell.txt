@@ -1,0 +1,570 @@
+OUTLINE
+-------
+
+0. Administrative announcements
+1. Getting started
+2. Navigating the filesystem
+3. Listing files
+4. Showing the contents of a file
+5. Exercise: explore /etc
+6. The man pages
+7. Manipulating files
+8. Exercise: manipulate some files
+9. File descriptors
+10. Nifty features of a shell
+11. Exercise: Using pipes and redirects
+
+0. Administrative announcements
+-------------------------------
+
+Some things to keep in mind:
+
+* Please comment on the Reddit post if you have a question.  While you are
+  free to contact us by e-mail, others will miss out on having the same
+  question answered.
+
+* Please do check (within reason) to see if your question has been asked
+  already.
+
+* If your question has been asked already but proposed solutions do not solve
+  your problem, make it clear what you have already tried (then we can avoid
+  having you try the things which you know don't work).
+
+* **Be specific** with your questions.  If you have an error message, include
+  it!  Don't just say "I am getting an error."  For more information, please
+  see http://www.catb.org/~esr/faqs/smart-questions.html.  When in doubt, paste
+  all the relevant terminal output to a site like http://pastebin.com/ and post
+  the link with your question.
+
+1. Getting started
+------------------
+
+If you are using a system that comes with a graphical interface (X11), fire up
+a terminal emulator.  If you are using GNOME, this will be gnome-terminal (it
+should appear simply as "Terminal" in your list of applications) In KDE, it
+will be konsole.  If you are using something more minimalist, you might need to
+launch xterm.
+
+When you launch the terminal emulator, you will be greeted by a prompt.  What
+you see will be dependent on your distribution and the shell you are using, but
+the prompt typically looks something like this::
+
+    [user@hostname ~]$
+
+The prompt is unimportant for now.  Its purpose is to provide some useful
+information to the user.  Commands in these lessons will appear after a
+simple dollar ($) or pound (#) prompt, like so::
+
+    $ command
+    # command
+
+The dollar means you should execute the command as a normal user.  The pound
+means you should execute the command as the superuser, root (this will be
+explained in another lesson).  Commands will be shown with their output, if it
+is appropriate -- only execute those lines that are prefixed by a dollar or
+pound!
+
+2. Navigating the filesystem
+-----------------------------
+
+Let's figure out where we are.  Shell prompts usually contain this
+information, but there is another way to find out our current directory if that
+is not the case.  To do this, we can use the **p**\rint **w**\orking
+**d**\irectory command, pwd.
+
+::
+
+    $ pwd
+    /home/user
+
+You should see something like the output above, with user being your username.
+The directory that pwd has printed is called the working directory.  Relative
+paths are always taken to be relative to the current working directory (more
+on that in a moment).
+
+In this particular example, the "/home/user" directory is called your home
+directory and it is where your user files are typically stored.
+
+Now, let's try changing our working directory with the **c**\hange
+**d**\irectory command, cd.
+
+::
+
+    $ cd /tmp
+
+Your shell prompt may have changed to reflect the new directory you are in.  Notice
+that the output of pwd will also be different::
+
+    $ pwd
+    /tmp
+
+**Absolute versus relative paths**
+
+On Unix machines, there is no concept of drive letters as there is in Windows.
+All files will fall underneath the root directory (/) somewhere.  As such, all
+absolute paths begin with a "/".  Relative paths are those paths which **do
+not** begin with a "/".
+
+An absolute path always refers to the same file, no matter what directory you
+are currently working in.
+
+A relative path is, as mentioned, taken relative to the directory you are
+working in.  There are two relative paths, "." and "..", which are valid inside
+any directory. "." simply means the current directory.  ".." means the directory
+above this one.
+
+Note: Unlike Windows, filenames on Unix systems are case-sensitive.  "File" is
+not the same as "file"!
+
+**Examples**
+
+::
+
+    Working directory: /tmp
+    Path:              testfile
+    Refers to:         /tmp/testfile
+    
+    Working directory: /tmp
+    Path:              /home/user/school
+    Refers to:         /home/user/school
+    
+    Working directory: /tmp
+    Path:              ..
+    Refers to:         /
+    
+    Working directory: /tmp
+    Path:              .
+    Refers to:         /tmp
+
+**Other shortcuts**
+
+Your shell interprets "~" to mean the path to your home directory.  Similarly,
+"~bob" refers to the home directory of the user bob.  So, no matter where you
+are, you can use
+
+::
+
+    $ cd ~
+
+to get in your home directory.  You can also shorten it further to just
+
+::
+
+    $ cd
+
+3. Listing files
+------------------
+
+You can list the files inside a directory using the **ls** (list) command.
+First, go back to your home directory.  Then, list the contents.  Note that
+when you run ls without specifying a path, it assumes you want the working
+directory.
+
+::
+
+    $ cd
+    $ ls
+    bin Desktop
+
+In this example, there are two folders.  One is named "bin" and the other
+"Desktop".  Your output will probably not be the same -- there may be more
+files, there may be different ones, or there may be none at all.
+
+Conventionally, files whose name begins with a dot are hidden.  You can tell
+ls to show those files, too, by passing "-a" as an argument.
+
+::
+
+    $ ls -a
+    . .. bin Desktop .profile
+
+As you can see, ls is showing us the "." and ".." folders as well as a hidden
+file, ".profile".
+
+You can tell ls to show you the contents of a specific folder by passing that
+folder as an argument.
+
+::
+
+    $ ls /
+    bin   dev  home  lib64       media  opt   root  sbin  sys  usr
+    boot  etc  lib   lost+found  mnt    proc  run   srv   tmp  var
+
+Here we listed the root folder.  You can, of course, combine arguments
+to do more:
+
+::
+
+    $ ls -a /
+
+    .   bin   dev  home  lib64       media  opt   root  sbin  sys  usr
+    ..  boot  etc  lib   lost+found  mnt    proc  run   srv   tmp  var
+
+As before, we have listed the root folder but included hidden files this
+time.
+
+You can perform a long listing by passing ls the "-l" argument.  This will give
+you more information about the files listed.  Here is a long listing of the home
+directory of a user (aptly named user).
+
+::
+
+    $ ls -la ~
+    drwx------  54  user users    4096 Jul  2 19:14 .
+    drwxr-xr-x   5  root root     4096 Apr  9 22:22 ..
+    drwx------   4  user users    4096 Jun 23 09:49 bin
+    drwx------   2  user users    4096 Jun  9 09:32 Desktop
+    -rw-------   1  user users     794 Jun 30 09:05 .profile
+
+    |---------|---|-----|-----|-------|------------|--------|
+         1      2    3     4      5          6          7
+
+From left to right:
+
+1. File type/permissions.  The leftmost character is the file type. A "-"
+   indicates it is a regular file.  A "d" indicates it is a directory.  There
+   are other types, too, but these are the most common.
+
+   The next 9 characters represent permissions for the owner, group, and others
+   in that order.  "r" means read permission, "w" means write permission, and
+   "x" means execute permission.  A "-" means that particular operation (read,
+   write, or execute) is not permitted.
+
+   More on permissions at http://linuxcommand.org/lts0070.php.  Don't worry,
+   we'll cover more of what's on that page later.  For now, just refer to the
+   "File permissions" section.
+
+
+2. Number of hard links to the file (don't worry about this for now.)
+
+3. File owner.
+
+4. File group.
+
+5. Size of file.
+
+6. File time/date last modified.
+
+7. Name of file.
+
+You can read more about ls at http://linuxcommand.org/lts0030.php.
+
+**Example**
+
+From above, we can describe the ".." file thusly:
+
+It is a directory.  It has read, write, and execute permission for the user.  It has
+read and execute permissions for group and other.
+
+There are 5 hard links to "..".
+
+".." is owned by the user root and the group root.
+
+The size of ".." is 4096 bytes.
+
+".." was last modified on Apr 9 22:22.
+
+4. Showing the contents of a file
+---------------------------------
+
+To show what a regular file contains, we can use the cat (con**cat**enate - guess
+what happens if you give it multiple files?) program.  Try it out:
+
+::
+
+    $ cat /etc/issue
+    Arch Linux \r  (\n) (\l)
+
+You should see the name of the Linux distribution you are running in the output
+somewhere.
+
+5. Exercise: explore /etc
+-------------------------
+
+Now you should know how to determine what directory you are in, change your
+working directory, list the contents of a directory, and show the contents of a
+file.  Do some exploring in /etc.  It contains plaintext files almost
+universally.  Some of them are well documented -- see what sorts of interesting
+things you can find and report back!
+
+Tips:
+
+* If you run into a file that is taking a long time to output (or it is just
+  hanging), press Ctrl-C to cancel the currently running command.  You could
+  also just close the terminal and open a new one.
+
+* If your prompt becomes jibberish, it means you probably tried cat'ing a
+  file that contained binary data, some of which had special meaning to the
+  terminal (some programs use this to do useful things - things besides mangling
+  your terminal). Type exactly "reset" and hit enter to reset
+  your terminal -- or just close it and open a new one.
+
+**Solution** no real solution here!  Hope that you learned something, though.
+
+6. The man pages
+-----------------
+
+One of the most important things you will learn in this lesson is how to use
+the man (short for manual) pages.  Man pages tell you how to use commands.  They
+describe what arguments you can pass and what options they have.  You can open
+a man page for a program by running
+
+::
+
+    $ man <program>
+
+replacing <program> the name of the program you want to run.
+
+**Example**
+
+::
+
+    $ man ls
+
+You should see a page describing all of the features of ls.  Press 'h' to get
+a help menu.  For now, you can get around using the arrow keys and pressing
+'q' will quit the manual.
+
+If you are not sure how to use a command, the man page should always be your
+first stop.
+
+You can search the man pages by passing "-k" to man or by using apropos,
+as shown below
+
+::
+
+    $ man -k <search term>
+    $ apropos <search term>
+
+Man pages are separated into different sections based on what they are for.
+For more information, see the "man" manual page.
+
+Tip: if you just need a very quick reference to a command, you can try running
+it and passing "--help".  In some programs, help is accessed in a different
+way, though "--help" is the most common.
+
+7. Basic file manipulation
+----------------------------
+
+Now that you have been introduced to the man pages, new commands will be
+presented in a much less verbose way -- you can figure out how they work,
+now by reading the manual!
+
+See these commands:
+
+::
+
+    cp    - copy a file
+    mv    - move (or rename) a file
+    rm    - delete a file
+    less  - examine a file (use arrow keys to navigate, q to quit)
+    file  - determine the type of a file
+    rmdir - remove an empty directory
+    mkdir - create a directory
+    touch - update a file's last modified time (more important: create a file if it does not exist)
+
+Note: if you are using the **cp** or **rm** commands on a directory, you need to use the
+"-r" (recursive) option.
+
+Further reading on less: http://linuxcommand.org/lts0030.php
+
+Further reading on file manipulation: http://linuxcommand.org/lts0050.php
+
+8. Exercise: manipulate some files
+-------------------------------------
+
+Practice using the commands above.  Become familiar with their options (read
+the man pages!) and get a feel for the ones you think may be useful.  In
+particular, become accustomed to less instead of cat -- it is a much more
+effective way to look at files (man actually invokes less when it presents a
+man page to you (on most systems). you can change which command it uses to do this - but we'll
+save that until we get to environment variables).
+
+**WARNING: If you are practicing on a Linux installation that has important
+data, you may want to switch to a different user account or back up your
+data!**
+
+**Solution** no real solution here!  Hope that you learned something, though.
+
+9. File descriptors
+-------------------
+
+Before we move on to some of the nicer features of a shell, We will explain the
+concept of file descriptors.
+
+A file descriptor - from a program's perspective - is an open file. Note that on unix,
+a file does not necessarily represent a piece of storage space on a disk - It could be
+a network connection, some information synthesized dynamically by the kernel or some
+other program, or even a device such as a webcam!
+
+Any program that is run on a Unix machine (or even Windows) has, by default,
+three file descriptors available when it starts. programs can interact with file
+descriptors by reading and writing data to and from them. They are identified by
+a number, but the standard file descriptors below have also been given names:
+
+* STDIN (standard input), #0 (read only)
+* STDOUT (standard output), #1 (write only)
+* STDERR (standard error), #2 (write only)
+
+Any program that runs and accepts input *usually* gets it from STDIN.  STDIN
+is not the same as the arguments you pass in when you launch the program.  Rather,
+after the program is actually launched, the input it takes is from STDIN. Typically,
+STDIN is read from the command prompt - So for example, the shell reads it's commands
+from STDIN.
+ 
+STDOUT is where programs typically send their output (By convention - you can tell some programs
+to write to a file specially; this is not necessarily STDOUT).  For example,
+when you run ls, it writes a list of files to STDOUT, which by default is sent
+to the command window and displayed.
+
+STDERR is where programs send error messages.  STDOUT and STDERR are separated
+for the sake of convenience to the end user (you will see why shortly).  An
+example would be if you attempt to cat a file and it tells you "permission
+denied" -- this would be appearing on STDERR. STDERR by default is directed to the
+same place as STDOUT - but it's important to note that the program sees separate file
+descriptors.
+
+10. Nifty features of a shell
+-----------------------------
+
+By now you are probably thinking that typing in filenames all day is a lot of
+work -- and you'd be right!  Fortunately, our shells have our backs on this
+one and are willing to do some of the heavy lifting for us if we ask it nicely.
+
+**Tab Completion**
+
+If you are typing the name of a file, you can complete it by pressing they tab
+key.  The exact behavior is dependent on your shell, but typically the shell
+will complete as much as possible.  Suppose I am in a directory containing
+these files::
+
+    Desktop test1 test2
+
+If I type "Des" and hit tab, the shell will complete the word and display
+Desktop.  If I type "te" and hit tab, the shell will complete up to "test".
+You can also use tab completion while you are typing absolute paths.  Play
+with tab completion and get a feel for it -- it will save you a lot of time.
+
+**Wildcards**
+
+Shells also support wildcard expansion.  In other words, if you want to run
+a command on many files, you could use a wildcard to catch all of them without
+having to type each one.
+
+The "*" wildcard can take the place of any number of characters (even 0).  It
+will match any character.  However, if you use just a "*" with a command, such
+as
+
+::
+
+    $ rm *
+
+it will *not* expand to include files that begin with a dot.
+
+The "?" wildcard takes the place of one character.
+
+**Examples**
+
+Assume our working directory contains these files: file1 file2 file3 test1 test2
+test3.
+
+::
+
+    "*" expands to: file1 file2 file3 test1 test2 test3
+    "*e*" expands to: file1 file2 file3 test1 test2 test3
+    "te*" expands to: test1 test2 test3
+    "*3" expands to: file3 test3
+    "file?" expands to: file1 file2 file3 
+    "????1" expands to: file1 test1 
+
+**Pipes and Redirection**
+
+Shells have an immensely useful feature known as redirection.  This allows you
+to redirect programs' file descriptors (STDIN, STDOUT, STDERR).  There are
+several ways to perform redirection::
+
+    [program] > [file]
+
+Redirect STDOUT of [program] to [file], overwriting whatever was previously in
+[file], if anything. :: 
+
+    [program] >> [file]
+
+Redirect STDOUT of [program] to [file], but appending to the end of [file]
+instead of overwriting. ::
+
+    [program] 2> [file]
+    [program] 2>> [file]
+
+Redirect STDERR of [program] to [file].  The first example overwrites [file],
+the second appends to it.  The "2" comes from the fact that STDERR is file
+descriptor #2.
+
+So: > redirects, overwriting a file.  >> redirects, appending to a file.
+[file] need not exist already -- your shell will create it for you. ::
+
+    [program] < [file]
+
+Runs [program] using the contents of [file] as STDIN. 
+
+You can redirect both STDOUT and STDERR simultaneously::
+
+    [program] > prog-out 2> prog-err-out
+
+This would run [program], sending its output to the file prog-out and its
+error messages to the file prog-err-out.
+
+You can also tell the shell to send STDOUT and STDERR to the same file! ::
+
+    [program] > out 2>&1
+
+The first redirect sends STDOUT to the file out.  The second tells the shell
+that you want to send STDERR to wherever file descriptor #1 (STDOUT) is going.
+You need the ampersand in front of the 1 so that the shell does not mistake "1"
+for a filename.
+
+**Now the real fun: pipes!** ::
+
+    [program1] | [program2]
+
+Connects STDOUT from [program1] to STDIN on [program2].
+
+We have not yet learned any commands that can really take advantage of pipes.
+Let's fix that! ::
+
+    cut  - Display only certain parts of text
+    find - List all files under the given directory matching specified criteria
+    grep - Display only lines matching a given regular expression
+    sort - Sort output
+    wc   - Count characters, words, or lines in text
+
+Unix programs typically do their work by lines.  For example, grep displays all
+lines matching the pattern you give it.  The sort program assumes the things
+you want sorted are on a separate line.
+
+Further reading: http://linuxcommand.org/lts0060.php
+
+11. Exercise: Using pipes and redirects
+---------------------------------------
+
+Determine which files in your home directory contain the string "pro" as
+part of their filename.  Dump the list to a file using shell redirection.
+Afterwards, determine how many such files there are.
+
+Hint: You can complete this exercise using only concepts learned in this
+lesson, but you **will** need to refer to the man pages for commands to
+learn how to use them!
+
+**Solution**
+::
+
+    $ find ~ | grep pro > pro-count
+    $ wc -l pro-count
+
+Looking back at this, I can see how the way the exercise was described could
+be confusing.  Where I said "filename" it would have been more appropriate
+to say "pathname."  Apologies for that.
+
+John (kdorf)
+
+.. vim: expandtab

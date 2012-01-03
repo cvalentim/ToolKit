@@ -1,0 +1,724 @@
+OUTLINE
+-------
+
+0. Announcements
+1. Mounting
+2. The Filesystem Hierarchy
+3. Permissions In-Depth
+4. Changing Permissions And Ownership
+5. Access Control Lists (ACLs)
+6. Special Types Of Files
+7. Exercises
+
+0. Announcements
+----------------
+
+* As the second lesson seemed a little tricky and since we've gotten literally *zero*
+  questions so far, we're going to try and drum up participation a bit.
+  Instead of posting solutions to lesson two's exercises, please post
+  yours under lesson two and let's see what you've got!  After a few
+  days and some discussion, we'll post our solutions. Also, do the same for
+  this lesson in the lesson three thread - We'll post solutions
+  along with the next lesson.
+
+* If you don't have a solution yet, please still "check in" so we get an
+  idea of how many people are following along.
+
+* The following lesson deals largely in the filesystem structure.  Mac OS
+  felt the need to be special here, so some of what is laid out will differ
+  somewhat from Mac OS X. Additionally, though many of the directories
+  mentioned exist, Finder hides them from you by default, showing only the Mac
+  OS-specific directories. Neither of us uses Mac OS X, so our ability to
+  explain how it does things is rather limited - You may want to set up a
+  Linux machine (possibly in a virtual machine) to use going forward if you
+  haven't already.
+
+1. Mounting
+-----------
+
+If you come from a Windows background, you are probably familiar with the
+concept of a drive letter.  No such concept exists on Unix machines.
+Instead, there is one root folder that everything else falls underneath.
+
+Okay, but in the real world, we sometimes have to deal with multiple
+filesystems. How do we do that with this model? This is where mounting comes
+in. Using the ``mount(8)`` command, we can give a filesystem a mountpoint. A
+mountpoint is just a directory. Once we've mounted a filesystem, the original
+contents of it's mountpoint become invisible until it's unmounted, and the
+contents of the mounted filesystem appear inside the folder. We can query what
+filesystems are mounted and where by executing ``mount(8)`` with no arguments:
+
+::
+    
+    $ mount
+    proc on /proc type proc (rw,nosuid,nodev,noexec,relatime)
+    sys on /sys type sysfs (rw,nosuid,nodev,noexec,relatime)
+    udev on /dev type devtmpfs (rw,nosuid,relatime,size=10240k,nr_inodes=372747,mode=755)
+    run on /run type tmpfs (rw,nosuid,nodev,noexec,relatime,size=10240k,mode=755)
+    /dev/sda7 on / type ext3 (rw,relatime,errors=continue,barrier=0,data=ordered)
+    devpts on /dev/pts type devpts (rw,relatime,mode=600,ptmxmode=000)
+    shm on /dev/shm type tmpfs (rw,nosuid,nodev,relatime)
+    /dev/sda5 on /home type ext4 (rw)
+
+The output is from my (zenhack's) laptop. Each line is of the form:
+
+::
+    
+    <filesystem> on <mountpoint> type <type> (<options>)
+
+``<filesystem>`` is the filesystem that the mountpoint belongs to. Look at the
+lines for ``/dev/sda7`` and ``/dev/sda5``. The ``<filesystem>`` fields look
+like file paths, and in fact, they are:
+
+::
+	
+    $ ls /dev/sda*
+    /dev/sda
+    /dev/sda1
+    /dev/sda2
+    /dev/sda5
+    /dev/sda6
+    /dev/sda7
+    /dev/sda8
+
+The philosophy of Unix is that "everything is a file."  This
+might seem peculiar at first, but it is actually a very useful property.
+For example, devices (like your hard disk) are available as files. That's
+exactly what's happening here. /dev/sda is the disk as a whole, and /dev/sda1,
+/dev/sda2 etc. are partitions. To refer to a partition, we can just use it's
+filename.
+
+To actually mount filesystems with the ``mount(8)`` command, you need
+superuser priviliges, so let's take a brief interlude to talk about 
+those.
+
+The superuser, called ``root``, is the administrative user account on the
+system. Unlike normal users, it is not subject to permission checks - be
+*very* careful when working as root; you can seriously damage your system by
+running the wrong command. There are two programs that are commonly used to
+become the root user: ``su(1)`` and ``sudo(8)``. ``su`` starts a shell as another
+user (switch user), after that user's password is provided (if you're already
+root, it won't ask for a password). It defaults to root if no username is
+provided. ``sudo`` allows certain users to run commands as the superuser by
+providing their own password. (The users allowed to do this are specified in
+sudo's configuration file, ``/etc/sudoers``, which only root may write to.)
+Okay, so let's see some examples :
+
+::
+    
+    $ su
+    Passsword:
+    # whoami
+    root
+    # su jimmy
+    $ whoami
+    jimmy
+    $ cat /etc/shadow
+    cat: /etc/shadow: Permission denied
+    $ sudo cat /etc/shadow
+    Password:
+    <contents of /etc/shadow>
+
+/etc/shadow is the password database - for obvious reasons it shouldn't be
+readable by regular users (even though the passwords are encrypted). For the
+above example to work, root's password should be typed at the first password prompt,
+and jimmy's password should be typed at the second. Additionally, the user
+jimmy should be on record as being allowed to use sudo. Otherwise you'll get a
+nasty message telling you your behavior will be reported.
+
+On Ubuntu, and perhaps some others, there is by default no password assigned
+to the root account, so you can't log in as root directly, nor can you use
+``su`` to become root. Instead you'll have to use ``sudo``.
+
+Okay! Now that we know how to become root, let's use that to mount things.
+
+Try this : run ``mount(8)`` to see what filesystems are mounted. Then, plug
+in a USB flash drive. Odds are if you're using one of the more common
+graphical environments, It will mount the drive for you, and you'll see an
+icon for it somewhere. Run ``mount(8)`` again, to see where in the filesystem
+it's been mounted. Also make note of the name of the device. Have a quick look
+inside, then use the GUI to unmount/eject the drive. Don't unplug it yet. As
+root, run: 
+
+::
+    
+    # mount <device> /mnt
+
+where ``<device>`` is the device name. Then have a look in /mnt - you should
+see the same files as you saw in the other mount point. Okay, that was fun.
+Now let's unmount the disk. For this we use the ``umount(8)`` command - note
+that that's ``umount`` **not** ``unmount``. You can do this by providing
+either the mountpoint or the device as an argument.
+
+::
+    
+    # umount /mnt
+
+
+2. The Filesystem Hierarchy
+---------------------------
+
+Here's a brief overview of Unix filesystem.  See ``hier(7)`` for more
+information.  This overview takes the important points of ``hier(7)``
+with rewordings where appropriate.
+
+* / - The root directory.  Every file on a Unix system falls underneath
+  the root directory.
+
+* /bin - This directory contains executable programs which are needed in single
+  user mode and to bring the system up or repair it.  Think of /bin as containing
+  the "bare essentials" that a non-administrative user would need to use a shell
+  on the system.
+
+* /boot - Contains static files for the boot loader.  This directory only holds
+  the files which are needed during the boot process.  Specific examples include
+  the boot loader configuration, available kernels, and the kernel's "initial
+  ram disk".
+
+* /dev - Contains device files.
+
+* /etc - Usually pronounced "et-see"; contains configuration files for system-wide
+  software.
+
+* /home - Contains the home directories for users.
+
+* /lib - Contains shared libraries integral to basic system operation.  This
+  directory is analogous to /bin, but for libraries.
+
+* /media - Contains subdirectories for USB sticks, CDs, and the like.
+
+* /mnt - Used as a temporary mount point.  You might see subdirectories
+  so that you can make use of multiple temporary mount points.
+
+* /opt - Used for "add-on packages."  Typically /opt is used as a way to keep
+  programs that you compile from source separate from those things managed by a
+  package.  This helps keep the filesystem uncluttered.
+
+* /proc - Contains files that describe the system's state.  This includes files
+  that describe programs running, the state of the kernel, and other nifty things
+  like cpuinfo and meminfo.  This is a nonstandard directory not found on every
+  Unix.  Almost all Linux distros have /proc, but it is not enabled on FreeBSD
+  by default (for example). Even on other Operating Systems that have /proc,
+  it's layout is not standardized.
+
+* /root - The home directory for the root user.  Typically not readable by anyone
+  but root.
+
+* /sbin - Similar to /bin, but for binaries only the system administrator would 
+  need to run.
+
+* /srv - Contains data served by the system in some fashion.  You might see
+  /srv/http as document root for Apache, for example.
+
+* /tmp - Writable by all users.  Contains temporary files which may disappear
+  without notice.  Typically /tmp is cleared on system boot.
+
+* /usr - One of the more nebulous directories -- contains a lot of things, but
+  ``hier(7)`` describes it as sharable, read-only data.
+
+* /usr/bin - Contains most of the binaries normal users would use.
+
+* /usr/lib - Contains libraries not essential to basic system operation.
+
+* /usr/sbin - Contains system binaries which are not essential.
+
+* /usr/share - Contains shared data and documentation.  Your desktop
+  environment puts things like backgrounds, icons, and themes here.  Man pages
+  are located here.
+
+* /var - Contains variable data (things prone to change).  Examples include
+  system logs and mail.
+
+* /var/log - Contains system logs.
+
+These are the most important directories from the ``hier(7)`` manual.  Be sure
+to check out the manual for more information. Also, there is a standard known
+as the Filesystem Hierarchy Standard which specifies more generally the layout
+of the unix filesystem. It is available at: http://www.pathname.com/fhs
+
+3. Permissions In-Depth
+-----------------------
+
+The first lesson touched on permissions a bit and had some further reading on
+linuxcommand.org.  Here we'll drill down into permissions to get a feel for
+what is really going on.  This example (from ls -l) shows a typical set of
+permissions (spacing adjusted for diagramming purposes)::
+
+     d rwx r-x r-x
+    |-|---|---|---|
+     t  u   g   o
+
+As we learned, the first letter (t) indicates the type, in this case a
+directory.  Each of the next three fields shows the permissions for the
+user (u), group (g), and others (o).
+
+When a permission check is performed:
+
+1. The user ID that is accessing the file is checked against the user ID
+   that owns the file.  If they match, user (u from the diagram above)
+   permissions are used.
+
+2. The user ID that is accessing the file is checked to see if it belongs
+   to the file's group.  If it does, group (g from the diagram above)
+   permissions are used.
+
+3. Other (o from the diagram above) permissions are used.
+
+Order is important here.  For instance, if you set a file's permissions to
+something like ``---rwxrwx``, the file owner will not be able to read, write,
+or execute the file, but everyone else on the system will be able to!
+Permissions like those are not commonly used, since the owner could
+theoretically just ``chmod`` the file to whatever he/she likes, but it is
+good to be aware of the gotchas.
+
+File permissions are stored as bit fields.  An r, w, or x appearing in its
+position means that reads, writes, and executes are permitted, respectively.
+Those letters signify that the particular bit for that permission has been
+set.  Per the example above with permissions ``rwx r-x r-x`` you get a bit
+field like so: ``111 101 101`` (spaces added for readability).
+
+**File Permissions in Octal**
+
+Because file permissions for user, group, and other are three bits each,
+they can be represented conveniently using octal (base 8).  Knowing that
+the permissions are stored as bit fields, we can convert from binary
+to octal to figure out the file mode.  ``111 101 101`` becomes ``755``.
+
+Here's a table that will hopefully clarify things:
+
++-------------+-----------+-------+
+| permissions | bit field | octal |
++-------------+-----------+-------+
+|     ---     |    000    |   0   | 
++-------------+-----------+-------+
+|     --x     |    001    |   1   |
++-------------+-----------+-------+
+|     -w-     |    010    |   2   |
++-------------+-----------+-------+
+|     -wx     |    011    |   3   |
++-------------+-----------+-------+
+|     r--     |    100    |   4   |
++-------------+-----------+-------+
+|     r-x     |    101    |   5   |
++-------------+-----------+-------+
+|     rw-     |    110    |   6   |
++-------------+-----------+-------+
+|     rwx     |    111    |   7   |
++-------------+-----------+-------+
+
+**The setuid, setgid, and sticky bits**
+
+There is a fourth set of bits that we have not explored yet.  The setuid,
+setgid, and sticky bits are in this set.
+
+setuid - If this bit is set on a program, the program runs as if it were the
+owner who executed the program, regardless of who actually executes it.  Most
+commonly, setuid programs are owned by root to allow normal users to gain
+root privileges.  For example, to change your password, root privileges
+are required to modify ``/etc/shadow``; so ``/usr/bin/passwd`` is said to be
+setuid root.  The effect of setuid on a directory depends on what Unix you
+are running.  See
+http://en.wikipedia.org/wiki/Setuid#setuid_and_setgid_on_directories for more
+information.  If setuid and executable are set on a file, an ``s`` appears in
+the executable field of the user permissions.  If setuid is set on a file and
+executable is not, an ``S`` appears in the executable field of the user
+permissions.
+
+setgid - Similar to setuid, if this bit is set on a program; the program runs
+with the privileges of the group owning the executable regardless of who
+actually runs the executable.  The effect of setgid on a directory depends on
+what Unix you are running.  See
+http://en.wikipedia.org/wiki/Setuid#setuid_and_setgid_on_directories for more
+information. If setgid and executable are set on a file, an ``s`` appears in
+the executable field of the group permissions.  If setgid is set on a file and
+executable is not, an ``S`` appears in the executable field of the group
+permissions.
+
+**setuid and setgid are dangerous.  A program running setuid that can be
+exploited (through improper input sanitization, buffer overflow, or another
+vulnerability) can allow an attacker to compromise the account in question or,
+if the program is setuid root, the entire system.  You should probably not
+ever use setuid on your own programs.  You have been warned!**
+
+sticky bit - The effects of this bit depend on what Unix you are running.  See
+http://en.wikipedia.org/wiki/Sticky_bit for more information.  If the sticky
+bit and executable are set on a file, a ``t`` appears in the executable field
+for other permissions.  If the sticky bit is set on a file and executable is
+not, a ``T`` appears in the executable field of other permissions.
+
+When working in octal, setuid, setgid, and sticky are the leftmost digit if
+the mode you are setting contains four digits.  If you set a mode containing
+three digits, the digit representing setuid, etc. is assumed to be zero.  The
+octal values for setuid, setgid, and sticky are 4, 2, and 1 respectively.
+
+**Examples**
+
++-----------+-----------+---------------+
+| octal (3) | octal (4) |    symbolic   |
++-----------+-----------+---------------+
+|    000    |   0000    | ``---------`` |
++-----------+-----------+---------------+
+|    400    |   0400    | ``r--------`` |
++-----------+-----------+---------------+
+|    600    |   0600    | ``rw-------`` |
++-----------+-----------+---------------+
+|    640    |   0640    | ``rw-r-----`` |
++-----------+-----------+---------------+
+|    --     |   4755    | ``rwsr-xr-x`` |
++-----------+-----------+---------------+
+|    --     |   1777    | ``rwxrwxrwt`` |
++-----------+-----------+---------------+
+
+4. Changing Permissions And Ownership
+-------------------------------------
+
+So now we know how to interpret file permissions and ownership. How do we
+change them? Two commands are relevant here: ``chmod(1)`` and ``chown(1)``.
+``chmod(1)`` changes the permissions, and ``chown(1)`` changes the owner and
+group.  ``chgrp(1)`` is like ``chown(1)`` but only changes the group of a
+file.
+
+The basic usage of ``chmod(1)`` is :
+
+::
+    
+    $ chmod <mode> file1 file2 ...
+
+where mode can either be the permission bits to assign to the files in octal,
+or a symbolic specification of how to modify them.  Example::
+
+    $ chmod 755 /tmp/file
+
+sets the permissions of ``/tmp/file`` to 755, or ``rwxr-xr-x``.
+
+You can also set permissions symbolically, which is very useful and
+recommended over using octal.  To set permissions symbolically, use the form
+
+::
+
+    a?u?g?o?[=+-]r?w?x?
+
+That's a regular expression, by the way!  ``chmod(1)`` interprets ``a`` to
+mean all (i.e. owner, group, and other).  ``u`` means owner, ``g`` means
+group, and ``o`` means other.  Use ``=`` to set the permissions exactly as you
+specify them.  Use ``+`` to add the listed permissions.  Use ``-`` to take
+away the listed permissions.  One last thing: you can separate multiple
+instances of the aforementioned regular expression using commas to do more at
+once.  Examples::
+
+    $ chmod a=rw file
+
+Sets the mode of file to ``rw-rw-rw``.
+
+::
+
+    $ chmod go-w file
+
+Takes away write permissions from group and other.
+
+::
+
+    $ chmod u=rwx,o+rx file
+
+Sets the permissions for the file owner to ``rwx`` and adds read and write
+permissions for others.
+
+
+``chown(1)`` changes the owner (and possibly group) of a file or directory.
+Changing the owner of a file requires root privileges.  Changing the group
+of a file that you own does not require root privileges, but the user must be
+a member of that group.  Some examples::
+
+    # chown root:wheel /tmp/nonexist
+
+Changes the owner and group of ``/tmp/nonexist`` to root and wheel,
+respectively.
+
+::
+
+    # chown nobody /tmp/nonexist
+
+Changes the owner of ``/tmp/nonexist`` to the user nobody.
+
+::
+
+    $ chgrp users file
+
+Changes the group of ``file`` to the group users.  If the user running this
+command owns ``file`` and is in the group users, root privileges are not
+needed.
+
+::
+
+    $ chown bob:staff document
+
+If run by the user bob, and bob owns ``document``, changes the group of
+``document`` to staff.  Since the owner is not being changed, root privileges
+are not required.
+
+5. Access Control Lists (ACLs)
+------------------------------
+
+You have probably realized that the traditional Unix permissions model is
+somewhat limiting.  ACLs were implemented to help with this problem.  Using
+ACLs, you can permit additional users or groups access to a file outside
+the access granted by the owner, group, and other permissions we have seen
+already.  To configure ACLs, you can use the ``setfacl(1)`` utility.  You can
+examine a file's ACLs with ``getfacl(1)``.  Let's see what a typical file's
+ACLs look like::
+
+    $ getfacl ~
+    getfacl: Removing leading '/' from absolute path names
+    # file: home/kdorf
+    # owner: kdorf
+    # group: users
+    user::rwx
+    group::--x
+    other::--x
+
+The ``user::rwx`` shows the permissions that the file owner has.  ``group::--x``
+and ``other::--x`` similarly tell us the permissions of the file group and
+others.  We already knew how to figure this out by using ``ls -l``.  Let's
+try adding an entry to a temporary file::
+
+    $ cd /tmp
+    $ touch acl-test
+    $ getfacl acl-test
+    # file: acl-test
+    # owner: kdorf
+    # group: users
+    user::rw-
+    group::---
+    other::---
+
+The output from ``getfacl`` will depend on your configuration and is likely
+different from above, but should look similar.
+
+::
+
+    $ setfacl -m u:bin:rw- acl-test
+    $ getfacl acl-test
+    # file: acl-test
+    # owner: kdorf
+    # group: users
+    user::rw-
+    user:bin:rw-
+    group::---
+    mask::rw-
+    other::---
+
+Note that there is now an entry for the user bin, and another entry for mask.
+For a user or group added to an ACL to have read, write, or execute
+privilege, it must be present in mask as well as their specific ACL entry.
+Mask acts as a safeguard in case you make a mistake.
+
+This section is a very light introduction to ACLs.  See ``acl(5)``,
+``getfacl(1)``, and ``setfacl(1)`` for more information.  There is also a
+more in-depth tutorial at http://www.suse.de/~agruen/acl/linux-acls/online/.
+
+6. Special Types Of Files
+-------------------------
+
+So far we're mostly familiar with two types of files - regular files and
+directories. On unix systems, there are a few other types of files that it's
+worth being aware of:
+
+* Device Nodes
+ 
+* Symbolic links
+
+* Hard links
+
+* Sockets
+
+* Fifos
+
+Device nodes represent various devices in the
+machine. They are typically found in /dev, but they can be created in other places (using the
+``mknod(1)`` command). There are two kinds, character devices and block
+devices. Block devices are typically storage devices such as disks, and
+everything else is typically a character device. The difference is for most
+purposes not important when dealing with device files - it has to do
+with how the kernel handles performance issues surrounding storage. Device
+nodes have two special attributes, major and minor number, which allow the
+kernel to identify what device they refer to. Once created, device nodes
+pretty much act like regular files. Note that a "device" is actually somewhat
+more abstract than just a piece of hardware. For example, partitions are
+represented as device nodes. There are also some things, such as ``/dev/null``
+- which essentially acts as a black hole (attempting to read from it returns
+nothing, and it just throws away anything that is written to it) - That have
+no relation to hardware whatsoever.
+
+Symbolic links are files that "point" to other files. Attempting to read or
+write to them will instead read or write to the file to which they point. They
+can be created by using the ``ln(1)`` command with the -s option (without this
+option it creates hard links, which we'll talk about in a second). So:
+
+::
+    
+    $ ln -s ../foo bar
+
+will create a symbolic link named bar in the current directory, referring to
+the file foo in the parent diretory. If we'd left off the name bar, the
+symlink would be called foo instead.
+
+Hard links actually aren't a special type of file at all - In the first lesson
+we mentioned that ``ls(1)`` displays the number of hard links to the file, but
+didn't really explain what those were. Let's look at that again.
+
+::
+
+    $ ls -la ~
+    drwx------  54  user users    4096 Jul  2 19:14 .
+    drwxr-xr-x   5  root root     4096 Apr  9 22:22 ..
+    drwx------   4  user users    40e6 Jun 23 09:49 bin
+    drwx------   2  user users    4096 Jun  9 09:32 Desktop
+    -rw-------   1  user users     794 Jun 30 09:05 .profile
+
+The second column is what we're interested in. Let's back up and explain an
+important detail of how disk filesystems work, as this will help us understand
+how hard links work.
+
+Any file on disk has two parts: a reference to it that contains metadata such
+as the filename, owner, permissions, etc, and the chunk of data itself. 
+
+An interesting fact that comes from this is that you can have multiple
+references to the same chunk of data. This is exactly how hard links work. As
+mentioned, they can be created with ``ln(1)``:
+
+::
+    
+    $ touch foo
+    $ ln foo bar
+    $ echo hello > foo
+    $ cat bar
+    hello
+
+The directory .. , which refers to the parent directory, is in fact a hard
+link This actually can cause some interesting confusion in programs that don't
+handle it specially, particularly in conjunction with symbolic links. The
+following can be done with the csh shell that is included with FreeBSD:
+
+::
+    
+    $ cd /tmp
+    $ mkdir -p a d/e
+    $ ln -s /tmp/d/e a/b
+    $ cd a/b
+    $ cd ..
+    $ pwd
+    /tmp/d
+
+Make sure you understand how this works.
+
+Sockets represent network connections. In my (zenhack's) opinion, sockets are
+actually a sub-optimal way of handling network connections on Unix - Unix didn't
+have networking initially, and this feature was kindof bolted on afterwards.
+The reason I think this isn't such a great way to do networking, is that
+despite paying lip service to being files, sockets don't really act the part.
+To see what I mean, let's find one. On my system there's a socket located at
+``/tmp/.X11-unix/X0`` - This is used to communicate with the graphical
+display.
+
+::
+    
+    $ cd /tmp/.X11-unix
+    $ ls -l
+    srwxrwsrwx 1 root users 0 Jul 24 15:03 X0
+
+The biggest problem with sockets: you can't read from them or write to them with
+standard tools:
+
+::
+    
+    $ cat X0
+    cat: X0: No such device or address
+    $ echo hello > X0
+    bash: X0: No such device or address
+
+This functionality is somewhat central to files, hence my assertion that
+sockets don't act the part. You can work around this to some extent though,
+with utilities like socat and netcat - They allow you to pipe information to
+and from the network.
+
+Finally, a fifo is essentially a named pipe. It stands for First In, First Out.
+When a process tries to write to a fifo, the process will pause until another
+process tries to read from the fifo, in which case the data written by the
+first will be read by the second. This works similarly to piping the output
+from one command to another with the shell, but there are some important
+differences:
+
+* Fifos are unbuffered. This means that when a process writes to a fifo, it
+  will wait until the data is read back out again, before doing anything else.
+  In contrast, with a pipe, there's a certain amount of data that can be
+  written to the pipe without waiting for the other side to retrieve it. Pipes
+  will eventually block if they get "full", but there is a little wiggle room.
+  Not so with fifos.
+
+* Fifos have names; they're actually on the filesystem somewhere - pipes are
+  just file descriptors, and as such go away when the processes using them
+  finish.
+
+Fifos can be created with the ``mkfifo(1)`` command.
+
+You can do some interesting things with fifos. Just one example - There is an
+irc (chat) client call ii, which runs in the background and reads your
+messages from fifos, logging channel activity to a regular file for you to
+read.
+
+The first character of the permissions field in the output of ``ls -l`` is the
+type of the file. Here are the various meanings:
+
++-----------+------------------------+
+| character | type                   |
++-----------+------------------------+
+| ``-``     | regular file           |
++-----------+------------------------+
+| ``d``     | directory              |
++-----------+------------------------+
+| ``c``     | character device       |
++-----------+------------------------+
+| ``l``     | symbolic link          |
++-----------+------------------------+
+| ``s``     | socket                 |
++-----------+------------------------+
+| ``p``     | fifo (stands for pipe) |
++-----------+------------------------+
+
+7. Exercises
+------------
+
+1. A system administrator accidentally changed the permissions of ``su`` to
+   those shown below::
+
+    -rwsrwxrwx 1 root root 38582 Jun  9 19:01 /bin/su
+
+   If you were a malicious user, how would you use this to your advantage?
+   Not looking for specific details here, just a general idea.
+
+2. Use ACLs to create a directory that you and another user can collaborate
+   in.  The directory should work such that any new file created is writable by
+   the user you want to collaborate with.  There is a non-portable GNU
+   extension that will help you with this ("default" ACLs).  See
+   ``setfacl(1)`` for more information.  Test your configuration by switching
+   to the other user using ``su(1)``.
+
+3. Use ACLs to give one user read access to a single file in your home
+   directory.  The user should have read access to only one file, and should
+   not be able read any other files, list the contents of your home, or write
+   to anything inside your home.  Note that a user needs execute permissions
+   on a directory to do anything with the files inside it.  Test your
+   configuration by switching to the other user using ``su(1)``.  You may need
+   to modify the permissions on your home directory (that is, user, group,
+   other) to get this working.
+
+4. Most operating systems, including Unix, won't let you create hard links to
+   directories explicitly. However, they are still used by the filesystem to
+   keep track of directories. Look at the hard link count for a few
+   directories, and try to figure out where all of those links are coming from.
+
+5. Given the implementation of hard links, What do you think will happen if
+   you try to create a hard link pointing to a file on another disk? will it
+   work? Why or why not? If not, what might you do instead?
+
+.. vim:set et tw=78:
